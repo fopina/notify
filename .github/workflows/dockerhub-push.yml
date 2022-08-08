@@ -17,7 +17,7 @@ jobs:
       - name: Get Github tag
         id: meta
         run: |
-          echo "::set-output name=tag::$(curl --silent "https://api.github.com/repos/projectdiscovery/notify/releases/latest" | jq -r .tag_name)"
+          echo "::set-output name=tag::$(curl --silent "https://api.github.com/repos/fopina/notify/releases/latest" | jq -r .tag_name)"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -36,4 +36,4 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm
           push: true
-          tags: projectdiscovery/notify:latest,projectdiscovery/notify:${{ steps.meta.outputs.tag }}
+          tags: fopina/notify:latest,fopina/notify:${{ steps.meta.outputs.tag }}
