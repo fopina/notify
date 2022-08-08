@@ -39,7 +39,11 @@ func main() {
 		}()
 	}()
 
-	err = notifyRunner.Run()
+	if options.Web {
+		err = notifyRunner.StartWeb()
+	} else {
+		err = notifyRunner.Run()
+	}
 	if err != nil {
 		gologger.Fatal().Msgf("Could not run notifier: %s\n", err)
 	}
@@ -63,6 +67,8 @@ func readConfig() {
 	set.BoolVar(&options.Version, "version", false, "display version")
 	set.BoolVarP(&options.NoColor, "no-color", "nc", false, "disable colors in output")
 	set.StringVar(&options.Proxy, "proxy", "", "HTTP Proxy to use with notify")
+	set.StringVar(&options.WebBind, "web-bind", "127.0.0.1:8888", "Address and port to bind web server")
+	set.BoolVar(&options.Web, "web", false, "Run as webserver, using raw POST data as message")
 
 	_ = set.Parse()
 

@@ -12,6 +12,8 @@ type Options struct {
 	IDs            goflags.NormalizedStringSlice `yaml:"ids,omitempty"`
 	Proxy          string                        `yaml:"proxy,omitempty"`
 	RateLimit      int                           `yaml:"rate_limit,omitempty"`
+	Web            bool                          `yaml:"web,omitempty"`
+	WebBind        string                        `yaml:"web_bind,omitempty"`
 
 	MessageFormat string `yaml:"message_format,omitempty"`
 
