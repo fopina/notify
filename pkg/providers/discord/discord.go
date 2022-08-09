@@ -4,15 +4,14 @@ import (
 	"fmt"
 
 	"github.com/containrrr/shoutrrr"
+	"github.com/oriser/regroup"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/notify/pkg/utils"
-	"go.uber.org/multierr"
-	"github.com/oriser/regroup"
 )
 
 type Provider struct {
-	Discord []*Options `yaml:"discord,omitempty"`
+	Options *Options `yaml:"discord,omitempty"`
 }
 
 type Options struct {
@@ -23,41 +22,26 @@ type Options struct {
 	DiscordFormat           string `yaml:"discord_format,omitempty"`
 }
 
-func New(options []*Options, ids []string) (*Provider, error) {
-	provider := &Provider{}
-
-	for _, o := range options {
-		if len(ids) == 0 || utils.Contains(ids, o.ID) {
-			provider.Discord = append(provider.Discord, o)
-		}
-	}
-
+func New(options *Options) (*Provider, error) {
+	provider := &Provider{Options: options}
 	return provider, nil
 }
-func (p *Provider) Send(message, CliFormat string) error {
-	var DiscordErr error
 
-	for _, pr := range p.Discord {
-		msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, pr.DiscordFormat))
-		
-		discordWebhookRegex := regroup.MustCompile(`(?P<scheme>https?):\/\/(?P<domain>(?:ptb\.|canary\.)?discord(?:app)?\.com)\/api(?:\/)?(?P<api_version>v\d{1,2})?\/webhooks\/(?P<webhook_identifier>\d{17,19})\/(?P<webhook_token>[\w\-]{68})`)
-		matchedGroups, err := discordWebhookRegex.Groups(pr.DiscordWebHookURL)
-		
-		if err != nil {
-			err := fmt.Errorf("incorrect discord configuration for id: %s ", pr.ID)
-			DiscordErr = multierr.Append(DiscordErr, err)
-			continue
-		}
-		
-		webhookID, webhookToken := matchedGroups["webhook_identifier"], matchedGroups["webhook_token"]
-		url := fmt.Sprintf("discord://%s@%s?splitlines=no", webhookToken, webhookID)
-		sendErr := shoutrrr.Send(url, msg)
-		if sendErr != nil {
-			sendErr = errors.Wrap(sendErr, fmt.Sprintf("failed to send discord notification for id: %s ", pr.ID))
-			DiscordErr = multierr.Append(DiscordErr, sendErr)
-			continue
-		}
-		gologger.Verbose().Msgf("discord notification sent for id: %s", pr.ID)
+func (p *Provider) Send(message, CliFormat string) error {
+	msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, p.Options.DiscordFormat))
+
+	discordWebhookRegex := regroup.MustCompile(`(?P<scheme>https?):\/\/(?P<domain>(?:ptb\.|canary\.)?discord(?:app)?\.com)\/api(?:\/)?(?P<api_version>v\d{1,2})?\/webhooks\/(?P<webhook_identifier>\d{17,19})\/(?P<webhook_token>[\w\-]{68})`)
+	matchedGroups, err := discordWebhookRegex.Groups(p.Options.DiscordWebHookURL)
+	if err != nil {
+		return fmt.Errorf("incorrect discord configuration for id: %s ", p.Options.ID)
 	}
-	return DiscordErr
+
+	webhookID, webhookToken := matchedGroups["webhook_identifier"], matchedGroups["webhook_token"]
+	url := fmt.Sprintf("discord://%s@%s?splitlines=no", webhookToken, webhookID)
+	sendErr := shoutrrr.Send(url, msg)
+	if sendErr != nil {
+		return errors.Wrap(sendErr, fmt.Sprintf("failed to send discord notification for id: %s ", p.Options.ID))
+	}
+	gologger.Verbose().Msgf("discord notification sent for id: %s", p.Options.ID)
+	return nil
 }

@@ -7,11 +7,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/notify/pkg/utils"
-	"go.uber.org/multierr"
 )
 
 type Provider struct {
-	Telegram []*Options `yaml:"telegram,omitempty"`
+	Options *Options `yaml:"telegram,omitempty"`
 }
 
 type Options struct {
@@ -21,31 +20,19 @@ type Options struct {
 	TelegramFormat string `yaml:"telegram_format,omitempty"`
 }
 
-func New(options []*Options, ids []string) (*Provider, error) {
-	provider := &Provider{}
-
-	for _, o := range options {
-		if len(ids) == 0 || utils.Contains(ids, o.ID) {
-			provider.Telegram = append(provider.Telegram, o)
-		}
-	}
-
+func New(options *Options, ids []string) (*Provider, error) {
+	provider := &Provider{Options: options}
 	return provider, nil
 }
 
 func (p *Provider) Send(message, CliFormat string) error {
-	var TelegramErr error
-	for _, pr := range p.Telegram {
-		msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, pr.TelegramFormat))
+	msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, p.Options.TelegramFormat))
 
-		url := fmt.Sprintf("telegram://%s@telegram?channels=%s", pr.TelegramAPIKey, pr.TelegramChatID)
-		err := shoutrrr.Send(url, msg)
-		if err != nil {
-			err = errors.Wrap(err, fmt.Sprintf("failed to send telegram notification for id: %s ", pr.ID))
-			TelegramErr = multierr.Append(TelegramErr, err)
-			continue
-		}
-		gologger.Verbose().Msgf("telegram notification sent for id: %s", pr.ID)
+	url := fmt.Sprintf("telegram://%s@telegram?channels=%s", p.Options.TelegramAPIKey, p.Options.TelegramChatID)
+	err := shoutrrr.Send(url, msg)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to send telegram notification for id: %s ", p.Options.ID))
 	}
-	return TelegramErr
+	gologger.Verbose().Msgf("telegram notification sent for id: %s", p.Options.ID)
+	return nil
 }

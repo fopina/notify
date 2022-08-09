@@ -8,11 +8,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/notify/pkg/utils"
-	"go.uber.org/multierr"
 )
 
 type Provider struct {
-	Pushover []*Options `yaml:"pushover,omitempty"`
+	Options *Options `yaml:"pushover,omitempty"`
 }
 
 type Options struct {
@@ -23,31 +22,19 @@ type Options struct {
 	PushoverFormat   string   `yaml:"pushover_format,omitempty"`
 }
 
-func New(options []*Options, ids []string) (*Provider, error) {
-	provider := &Provider{}
-
-	for _, o := range options {
-		if len(ids) == 0 || utils.Contains(ids, o.ID) {
-			provider.Pushover = append(provider.Pushover, o)
-		}
-	}
-
+func New(options *Options) (*Provider, error) {
+	provider := &Provider{Options: options}
 	return provider, nil
 }
 
 func (p *Provider) Send(message, CliFormat string) error {
-	var PushoverErr error
-	for _, pr := range p.Pushover {
-		msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, pr.PushoverFormat))
+	msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, p.Options.PushoverFormat))
 
-		url := fmt.Sprintf("pushover://shoutrrr:%s@%s/?devices=%s", pr.PushoverApiToken, pr.UserKey, strings.Join(pr.PushoverDevices, ","))
-		err := shoutrrr.Send(url, msg)
-		if err != nil {
-			err = errors.Wrap(err, fmt.Sprintf("failed to send pushover notification for id: %s ", pr.ID))
-			PushoverErr = multierr.Append(PushoverErr, err)
-			continue
-		}
-		gologger.Verbose().Msgf("pushover notification sent for id: %s", pr.ID)
+	url := fmt.Sprintf("pushover://shoutrrr:%s@%s/?devices=%s", p.Options.PushoverApiToken, p.Options.UserKey, strings.Join(p.Options.PushoverDevices, ","))
+	err := shoutrrr.Send(url, msg)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to send pushover notification for id: %s ", p.Options.ID))
 	}
-	return PushoverErr
+	gologger.Verbose().Msgf("pushover notification sent for id: %s", p.Options.ID)
+	return nil
 }

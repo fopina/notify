@@ -8,12 +8,12 @@ import (
 	"github.com/containrrr/shoutrrr"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/notify/pkg/types"
 	"github.com/projectdiscovery/notify/pkg/utils"
-	"go.uber.org/multierr"
 )
 
 type Provider struct {
-	Slack []*Options `yaml:"slack,omitempty"`
+	Options *Options `yaml:"slack,omitempty"`
 }
 
 type Options struct {
@@ -27,59 +27,50 @@ type Options struct {
 	SlackFormat     string `yaml:"slack_format,omitempty"`
 }
 
-func New(options []*Options, ids []string) (*Provider, error) {
-	provider := &Provider{}
-
-	for _, o := range options {
-		if len(ids) == 0 || utils.Contains(ids, o.ID) {
-			provider.Slack = append(provider.Slack, o)
-		}
-	}
-
+func New(options *Options) (*Provider, error) {
+	provider := &Provider{Options: options}
 	return provider, nil
 }
 
-func (p *Provider) Send(message, CliFormat string) error {
-	var SlackErr error
-	for _, pr := range p.Slack {
-		msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, pr.SlackFormat))
-
-		if pr.SlackThreads {
-			if pr.SlackToken == "" {
-				err := errors.Wrap(fmt.Errorf("slack_token value is required to start a thread"),
-					fmt.Sprintf("failed to send slack notification for id: %s ", pr.ID))
-				SlackErr = multierr.Append(SlackErr, err)
-				continue
-			}
-			if pr.SlackChannel == "" {
-				err := errors.Wrap(fmt.Errorf("slack_channel value is required to start a thread"),
-					fmt.Sprintf("failed to send slack notification for id: %s ", pr.ID))
-				SlackErr = multierr.Append(SlackErr, err)
-				continue
-			}
-			if err := pr.SendThreaded(msg); err != nil {
-				err = errors.Wrap(err,
-					fmt.Sprintf("failed to send slack notification for id: %s ", pr.ID))
-				SlackErr = multierr.Append(SlackErr, err)
-				continue
-			}
-		} else {
-			slackTokens := strings.TrimPrefix(pr.SlackWebHookURL, "https://hooks.slack.com/services/")
-			url := &url.URL{
-				Scheme: "slack",
-				Path:   slackTokens,
-			}
-
-			err := shoutrrr.Send(url.String(), msg)
-			if err != nil {
-				err = errors.Wrap(err,
-					fmt.Sprintf("failed to send slack notification for id: %s ", pr.ID))
-				SlackErr = multierr.Append(SlackErr, err)
-				continue
-			}
-		}
-		gologger.Verbose().Msgf("Slack notification sent successfully for id: %s", pr.ID)
-
+func NewWithRaw(rawOptions *types.RawOptions) (*Provider, error) {
+	options := Options{}
+	err := rawOptions.Unmarshal(&options)
+	if err != nil {
+		return nil, err
 	}
-	return SlackErr
+	return New(&options)
+}
+
+func (p *Provider) Send(message, CliFormat string) error {
+	msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, p.Options.SlackFormat))
+
+	if p.Options.SlackThreads {
+		if p.Options.SlackToken == "" {
+			return errors.Wrap(fmt.Errorf("slack_token value is required to start a thread"),
+				fmt.Sprintf("failed to send slack notification for id: %s ", p.Options.ID))
+
+		}
+		if p.Options.SlackChannel == "" {
+			return errors.Wrap(fmt.Errorf("slack_channel value is required to start a thread"),
+				fmt.Sprintf("failed to send slack notification for id: %s ", p.Options.ID))
+		}
+		if err := p.Options.SendThreaded(msg); err != nil {
+			return errors.Wrap(err,
+				fmt.Sprintf("failed to send slack notification for id: %s ", p.Options.ID))
+		}
+	} else {
+		slackTokens := strings.TrimPrefix(p.Options.SlackWebHookURL, "https://hooks.slack.com/services/")
+		url := &url.URL{
+			Scheme: "slack",
+			Path:   slackTokens,
+		}
+
+		err := shoutrrr.Send(url.String(), msg)
+		if err != nil {
+			return errors.Wrap(err,
+				fmt.Sprintf("failed to send slack notification for id: %s ", p.Options.ID))
+		}
+	}
+	gologger.Verbose().Msgf("Slack notification sent successfully for id: %s", p.Options.ID)
+	return nil
 }

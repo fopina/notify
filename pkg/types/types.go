@@ -20,3 +20,17 @@ type Options struct {
 	CharLimit int    `yaml:"char_limit,omitempty"`
 	Data      string `yaml:"data,omitempty"`
 }
+
+type RawOptions struct {
+	unmarshal func(interface{}) error
+}
+
+func (options *RawOptions) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	options.unmarshal = unmarshal
+	return nil
+}
+
+// call this method later - when we know what concrete type to use
+func (options *RawOptions) Unmarshal(v interface{}) error {
+	return options.unmarshal(v)
+}

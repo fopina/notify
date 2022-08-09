@@ -9,11 +9,10 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/notify/pkg/utils"
 	"github.com/projectdiscovery/notify/pkg/utils/httpreq"
-	"go.uber.org/multierr"
 )
 
 type Provider struct {
-	Custom []*Options `yaml:"custom,omitempty"`
+	Options *Options `yaml:"custom,omitempty"`
 }
 
 type Options struct {
@@ -24,44 +23,31 @@ type Options struct {
 	CustomFormat     string            `yaml:"custom_format,omitempty"`
 }
 
-func New(options []*Options, ids []string) (*Provider, error) {
-	provider := &Provider{}
-
-	for _, o := range options {
-		if len(ids) == 0 || utils.Contains(ids, o.ID) {
-			provider.Custom = append(provider.Custom, o)
-		}
-	}
-
+func New(options *Options) (*Provider, error) {
+	provider := &Provider{Options: options}
 	return provider, nil
 }
 
 func (p *Provider) Send(message, CliFormat string) error {
-	var CustomErr error
+	msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, p.Options.CustomFormat))
+	body := bytes.NewBufferString(msg)
 
-	for _, pr := range p.Custom {
-
-		msg := utils.FormatMessage(message, utils.SelectFormat(CliFormat, pr.CustomFormat))
-		body := bytes.NewBufferString(msg)
-
-		r, err := http.NewRequest(pr.CustomMethod, pr.CustomWebhookURL, body)
-		if err != nil {
-			err = errors.Wrap(err, fmt.Sprintf("failed to send custom notification for id: %s ", pr.ID))
-			CustomErr = multierr.Append(CustomErr, err)
-			continue
-		}
-
-		for k, v := range pr.CustomHeaders {
-			r.Header.Set(k, v)
-		}
-
-		_, err = httpreq.NewClient().Do(r)
-		if err != nil {
-			err = errors.Wrap(err, fmt.Sprintf("failed to send custom notification for id: %s ", pr.ID))
-			CustomErr = multierr.Append(CustomErr, err)
-			continue
-		}
-		gologger.Verbose().Msgf("custom notification sent for id: %s", pr.ID)
+	r, err := http.NewRequest(p.Options.CustomMethod, p.Options.CustomWebhookURL, body)
+	if err != nil {
+		err = errors.Wrap(err, fmt.Sprintf("failed to send custom notification for id: %s ", p.Options.ID))
+		return err
 	}
-	return CustomErr
+
+	for k, v := range p.Options.CustomHeaders {
+		r.Header.Set(k, v)
+	}
+
+	_, err = httpreq.NewClient().Do(r)
+	if err != nil {
+		err = errors.Wrap(err, fmt.Sprintf("failed to send custom notification for id: %s ", p.Options.ID))
+		return err
+	}
+	gologger.Verbose().Msgf("custom notification sent for id: %s", p.Options.ID)
+
+	return nil
 }
