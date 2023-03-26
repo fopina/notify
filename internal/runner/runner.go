@@ -212,6 +212,9 @@ To use a specific one, post to http://%s/PROFILE
 
 func (r *Runner) sendMessage(msg string) error {
 	if len(msg) > 0 {
+		if r.options.Delay > 0 {
+			time.Sleep(time.Duration(r.options.Delay) * time.Second)
+		}
 		gologger.Silent().Msgf("%s\n", msg)
 		err := r.providers.Send(msg)
 		if err != nil {
