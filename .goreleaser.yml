@@ -15,6 +15,9 @@ builds:
     - arm
     - arm64
 
+  goarm:
+    - '7'
+
   ignore:
     - goos: darwin
       goarch: '386'
@@ -32,9 +35,35 @@ archives:
 checksum:
   algorithm: sha256
 
-announce:
-  slack:
-    enabled: true
-    channel: '#release'
-    username: GoReleaser
-    message_template: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+dockers:
+  - &image-def
+    image_templates:
+      - fopina/{{.ProjectName}}:{{ .Version }}-amd64
+    use: buildx
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - --platform=linux/amd64
+  - <<: *image-def
+    image_templates:
+      - fopina/{{.ProjectName}}:{{ .Version }}-arm64
+    goarch: arm64
+    build_flag_templates:
+      - --platform=linux/arm64/v8
+  - <<: *image-def
+    image_templates:
+      - fopina/{{.ProjectName}}:{{ .Version }}-armv7
+    goarch: arm
+    goarm: '7'
+    build_flag_templates:
+      - --platform=linux/arm/v7
+
+docker_manifests:
+  - &manifest-def
+    name_template: fopina/{{.ProjectName}}:{{ .Version }}
+    image_templates:
+      - fopina/{{.ProjectName}}:{{ .Version }}-armv7
+      - fopina/{{.ProjectName}}:{{ .Version }}-arm64
+      - fopina/{{.ProjectName}}:{{ .Version }}-amd64
+  - <<: *manifest-def
+    name_template: fopina/{{.ProjectName}}:latest

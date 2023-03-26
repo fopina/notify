@@ -1,6 +1,8 @@
 package providers
 
 import (
+	"fmt"
+
 	"github.com/acarl005/stripansi"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
@@ -43,6 +45,7 @@ type Client struct {
 func New(providerOptions *ProviderOptions, options *types.Options) (*Client, error) {
 
 	client := &Client{providerOptions: providerOptions, options: options}
+	totalProviders := 0
 
 	if providerOptions.Slack != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "slack")) {
 
@@ -52,6 +55,7 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 		}
 
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.Slack)
 	}
 	if providerOptions.Discord != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "discord")) {
 
@@ -60,6 +64,7 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 			return nil, errors.Wrap(err, "could not create discord provider client")
 		}
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.Discord)
 	}
 	if providerOptions.Pushover != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "pushover")) {
 
@@ -68,6 +73,7 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 			return nil, errors.Wrap(err, "could not create pushover provider client")
 		}
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.Pushover)
 	}
 	if providerOptions.GoogleChat != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "googlechat")) {
 
@@ -84,6 +90,7 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 			return nil, errors.Wrap(err, "could not create smtp provider client")
 		}
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.SMTP)
 	}
 	if providerOptions.Teams != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "teams")) {
 
@@ -92,6 +99,7 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 			return nil, errors.Wrap(err, "could not create teams provider client")
 		}
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.Teams)
 	}
 	if providerOptions.Telegram != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "telegram")) {
 
@@ -100,6 +108,7 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 			return nil, errors.Wrap(err, "could not create telegram provider client")
 		}
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.Telegram)
 	}
 
 	if providerOptions.Custom != nil && (len(options.Providers) == 0 || sliceutil.Contains(options.Providers, "custom")) {
@@ -109,6 +118,11 @@ func New(providerOptions *ProviderOptions, options *types.Options) (*Client, err
 			return nil, errors.Wrap(err, "could not create custom provider client")
 		}
 		client.providers = append(client.providers, provider)
+		totalProviders += len(provider.Custom)
+	}
+
+	if totalProviders == 0 {
+		return nil, fmt.Errorf("no providers matching %v", options.IDs)
 	}
 
 	return client, nil
