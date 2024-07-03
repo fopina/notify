@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -24,8 +25,9 @@ import (
 
 // Runner contains the internal logic of the program
 type Runner struct {
-	options   *types.Options
-	providers *providers.Client
+	options         *types.Options
+	providers       *providers.Client
+	providerOptions *providers.ProviderOptions
 }
 
 // NewRunner instance
@@ -57,7 +59,7 @@ func NewRunner(options *types.Options) (*Runner, error) {
 		return nil, err
 	}
 
-	return &Runner{options: options, providers: prClient}, nil
+	return &Runner{options: options, providers: prClient, providerOptions: &providerOptions}, nil
 }
 
 // Run polling and notification
@@ -124,6 +126,88 @@ func (r *Runner) Run() error {
 		r.sendMessage(msg)
 	}
 	return br.Err()
+}
+
+// Run polling and notification
+func (r *Runner) StartWeb() error {
+	defaultTransport := http.DefaultTransport.(*http.Transport)
+	if r.options.Proxy != "" {
+		proxyurl, err := url.Parse(r.options.Proxy)
+		if err != nil || proxyurl == nil {
+			gologger.Warning().Msgf("supplied proxy '%s' is not valid", r.options.Proxy)
+		} else {
+			defaultTransport = &http.Transport{
+				Proxy:             http.ProxyURL(proxyurl),
+				ForceAttemptHTTP2: true,
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			}
+		}
+	}
+
+	if r.options.RateLimit > 0 {
+		http.DefaultClient.Transport = utils.NewThrottledTransport(time.Second, r.options.RateLimit, defaultTransport)
+	}
+
+	var err error
+	var splitter bufio.SplitFunc
+
+	splitter, err = bulkSplitter(r.options.CharLimit)
+	if err != nil {
+		return err
+	}
+
+	handler := func(w http.ResponseWriter, req *http.Request) {
+		br := bufio.NewScanner(req.Body)
+
+		if r.options.CharLimit > bufio.MaxScanTokenSize {
+			// Satisfy the condition of our splitters, which is that charLimit is <= the size of the bufio.Scanner buffer
+			buffer := make([]byte, 0, r.options.CharLimit)
+			br.Buffer(buffer, r.options.CharLimit)
+		}
+		br.Split(splitter)
+
+		p := req.URL.Path[1:]
+		client := r.providers
+		if p != "" {
+			newOptions := *r.options
+			newOptions.IDs = []string{p}
+			prClient, err := providers.New(r.providerOptions, &newOptions)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%v", err)
+				return
+			}
+			client = prClient
+		}
+		for br.Scan() {
+			msg := br.Text()
+			if len(msg) > 0 {
+				err := client.Send(msg)
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, "%v", err)
+					return
+				}
+			}
+		}
+		err = br.Err()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%v", err)
+			return
+		}
+		fmt.Fprintf(w, "ok")
+	}
+	gologger.Info().Msgf(`Up and running!
+Post raw data to http://%s/, as in:
+	curl http://%s/ -d 'testing 1 2 3'
+This will send that data as message using all profiles.
+To use a specific one, post to http://%s/PROFILE
+`, r.options.WebBind, r.options.WebBind, r.options.WebBind)
+	http.HandleFunc("/", handler)
+	return http.ListenAndServe(r.options.WebBind, nil)
 }
 
 func (r *Runner) sendMessage(msg string) error {

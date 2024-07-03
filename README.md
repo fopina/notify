@@ -32,6 +32,42 @@ Notify is a Go-based assistance package that enables you to stream the output of
   <br>
 </h1>
 
+# THIS FORK
+
+This fork implements a `-web` flag (until a it is cleaned up and a PR can be created)
+
+## Web
+
+In some restricted (container?) environments it might be useful to have a single notify installation (and configuration) available for multiple services/scripts to use it.
+
+`-web` starts a local webserver and anything POSTed to that URL will be pushed as if it was stdin.
+
+```
+$ notify -web
+Up and running!
+
+Post raw data to http://127.0.0.1:8888/, as in:
+
+	curl http://127.0.0.1:8888/ -d 'testing 1 2 3'
+
+This will send that data as message using all profiles.
+To use a specific one, post to http://127.0.0.1:8888/PROFILE
+```
+
+## Docker
+
+`-web` mode is specially useful in a cluster of containers so that notify does not need to be installed and configured in every image.
+
+An image is ready to be used in [the hub](https://hub.docker.com/r/fopina/notify):
+
+```
+$ docker run --rm \
+             -v ~/.providers.conf:/.providers.conf:ro \
+             -p 8888:8888 \
+             fopina/notify \
+             -w -b 0.0.0.0:8888 -pc /.providers.conf
+```
+
 # Features
 
 - Supports for Slack / Discord / Telegram

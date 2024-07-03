@@ -39,7 +39,11 @@ func main() {
 		}()
 	}()
 
-	err = notifyRunner.Run()
+	if options.Web {
+		err = notifyRunner.StartWeb()
+	} else {
+		err = notifyRunner.Run()
+	}
 	if err != nil {
 		gologger.Fatal().Msgf("Could not run notifier: %s\n", err)
 	}
@@ -66,6 +70,8 @@ func readConfig() {
 	set.StringVar(&options.Proxy, "proxy", "", "HTTP Proxy to use with notify")
 	set.CallbackVarP(runner.GetUpdateCallback(), "update", "up", "update notify to latest version")
 	set.BoolVarP(&options.DisableUpdateCheck, "disable-update-check", "duc", false, "disable automatic notify update check")
+	set.StringVar(&options.WebBind, "web-bind", "127.0.0.1:8888", "Address and port to bind web server")
+	set.BoolVar(&options.Web, "web", false, "Run as webserver, using raw POST data as message")
 
 	_ = set.Parse()
 
