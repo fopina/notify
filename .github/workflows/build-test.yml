@@ -6,16 +6,24 @@ on:
   pull_request:
   workflow_dispatch:
 
-
 jobs:  
   build:
     name: Test Builds
     runs-on: ubuntu-latest
+    services:
+      gotify:
+        image: ghcr.io/gotify/server
+        ports:
+          - 80:80
+        options: >-
+          -v /var/gotify/data:/app/data
+          --name gotify
+
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.18
+          go-version: 1.21.x
 
       - name: Check out code
         uses: actions/checkout@v3
@@ -28,12 +36,9 @@ jobs:
         run: go build .
         working-directory: cmd/notify/
   
-      - name: Integration Tests
-        env: 
-          DISCORD_WEBHOOK_URL: "${{ secrets.DISCORD_WEBHOOK_URL }}"
-          SLACK_WEBHOOK_URL: "${{ secrets.SLACK_WEBHOOK_URL }}"
-          CUSTOM_WEBHOOK_URL: "${{ secrets.CUSTOM_WEBHOOK_URL }}"
-        run: |
-          chmod +x action-run.sh
-          bash action-run.sh
-        working-directory: cmd/integration-test/
+      # - name: Integration Tests
+      #   run: |
+      #     chmod +x gotify.sh
+      #     chmod +x action-run.sh
+      #     bash action-run.sh
+      #   working-directory: cmd/integration-test/

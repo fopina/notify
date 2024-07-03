@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/logrusorgru/aurora"
+
 	"github.com/projectdiscovery/notify/internal/testutils"
 )
 
@@ -23,6 +24,7 @@ var (
 		//		"teams":    &teams{},
 		//		"smtp":     &smtp{},
 		//		"pushover": &pushover{},
+		"gotify": &gotify{},
 	}
 )
 

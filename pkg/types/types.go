@@ -18,8 +18,9 @@ type Options struct {
 
 	MessageFormat string `yaml:"message_format,omitempty"`
 
-	Stdin     bool
-	Bulk      bool   `yaml:"bulk,omitempty"`
-	CharLimit int    `yaml:"char_limit,omitempty"`
-	Data      string `yaml:"data,omitempty"`
+	Stdin              bool
+	Bulk               bool   `yaml:"bulk,omitempty"`
+	CharLimit          int    `yaml:"char_limit,omitempty"`
+	Data               string `yaml:"data,omitempty"`
+	DisableUpdateCheck bool   `yaml:"disable_update_check,omitempty"`
 }

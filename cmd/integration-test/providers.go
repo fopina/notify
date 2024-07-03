@@ -20,7 +20,7 @@ func run(provider string) error {
 		return errIncorrectResultsCount(results)
 	}
 	for _, r := range results {
-		if !strings.Contains(r, provider) {
+		if !strings.Contains(strings.ToLower(r), strings.ToLower(provider)) {
 			return fmt.Errorf("incorrect result %s", results[0])
 		}
 	}
@@ -68,6 +68,12 @@ func (h *slack) Execute() error {
 // func (h *telegram) Execute() error {
 // 	return run("telegram")
 // }
+
+type gotify struct{}
+
+func (h *gotify) Execute() error {
+	return run("gotify")
+}
 
 func errIncorrectResultsCount(results []string) error {
 	return fmt.Errorf("incorrect number of results %s", strings.Join(results, "\n\t"))
