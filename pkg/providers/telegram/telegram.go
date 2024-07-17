@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/containrrr/shoutrrr"
 	"github.com/pkg/errors"
